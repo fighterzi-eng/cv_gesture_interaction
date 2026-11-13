@@ -6,10 +6,10 @@ class SkinDetector:
 
     #Dynamic YCbCr skin detector based on Brancati et al.'s trapezoidal model.
 
-    CR_MIN = 137          # fixed lower bound for Cr
-    CB_MAX = 126          # fixed upper bound for Cb
+    CR_MIN = 133          # fixed lower bound for Cr
+    CB_MAX = 128          # fixed upper bound for Cb
 
-    def __init__(self, rebuild_interval=60,pct_lo=1, pct_hi=98, coverage=0.12):
+    def __init__(self, rebuild_interval=60,pct_lo=4, pct_hi=94, coverage=0.12):
         self.rebuild_interval = rebuild_interval
         self.pct_lo = pct_lo
         self.pct_hi = pct_hi
