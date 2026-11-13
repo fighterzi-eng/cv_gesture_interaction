@@ -2,16 +2,14 @@
 import cv2
 import numpy as np
 
-
 class SkinDetector:
- 
+
     #Dynamic YCbCr skin detector based on Brancati et al.'s trapezoidal model.
-  
 
-    CR_MIN = 133          # fixed lower bound for Cr
-    CB_MAX = 128          # fixed upper bound for Cb
+    CR_MIN = 137          # fixed lower bound for Cr
+    CB_MAX = 126          # fixed upper bound for Cb
 
-    def __init__(self, rebuild_interval=30,pct_lo=5, pct_hi=95, coverage=0.10):
+    def __init__(self, rebuild_interval=60,pct_lo=1, pct_hi=98, coverage=0.12):
         self.rebuild_interval = rebuild_interval
         self.pct_lo = pct_lo
         self.pct_hi = pct_hi
@@ -20,7 +18,6 @@ class SkinDetector:
         self._frame = 0
         self._kernel = np.ones((9, 9), np.uint8)
 
-  
     def process(self, bgr):
         #Return (mask, params) for a BGR frame.
         ycrcb = cv2.cvtColor(bgr, cv2.COLOR_BGR2YCrCb)
@@ -33,7 +30,8 @@ class SkinDetector:
 
         mask = ((cr >= self.CR_MIN) & (cr <= cr_up) &
                 (cb >= cb_lo) & (cb <= self.CB_MAX)).astype(np.uint8) * 255
-        mask = cv2.morphologyEx(mask, cv2.MORPH_DILATE, self._kernel)
+        mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, self._kernel)
+        mask = cv2.dilate(mask, np.ones((3, 3), np.uint8), iterations=3)
 
         self._frame += 1
         return mask, self.params
@@ -68,7 +66,7 @@ class SkinDetector:
                 "y0": y0, "y1": y1, "y2": y2, "y3": y3}
 
     def _y_percentiles(self, y, channel, center):
-        # sees the values close tto the calculated max 
+        # sees the values close tto the calculated max
         mask = np.abs(channel.astype(np.int16) - center) <= 2
         ys = y[mask]
         if ys.size < 10:
