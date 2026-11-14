@@ -1,7 +1,7 @@
 # skin_detector.py
 import cv2
 import numpy as np
-
+# a performance improvement can be using lut and precomputed values
 class SkinDetector:
 
     #Dynamic YCbCr skin detector based on Brancati et al.'s trapezoidal model.
@@ -16,13 +16,20 @@ class SkinDetector:
         self.coverage = coverage
         self.params = None
         self._frame = 0
-        self._kernel = np.ones((9, 9), np.uint8)
+        self._kernel = np.ones((5, 5), np.uint8)
 
     def process(self, bgr):
         #Return (mask, params) for a BGR frame.
         ycrcb = cv2.cvtColor(bgr, cv2.COLOR_BGR2YCrCb)
 
         if self.params is None or self._frame % self.rebuild_interval == 0:
+            new = self._build_params(ycrcb)
+            if self.params is None:
+                self.params = new
+            else:                                   # blend so thresholds don't jump
+                a = 0.2
+                self.params = {k: int(a * new[k] + (1 - a) * self.params[k])
+                               for k in new}
             self.params = self._build_params(ycrcb)
 
         y, cr, cb = cv2.split(ycrcb)
