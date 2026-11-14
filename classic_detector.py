@@ -53,8 +53,8 @@ def main():
     cap.set(cv2.CAP_PROP_AUTO_WB, 0)
     cap.set(cv2.CAP_PROP_AUTO_EXPOSURE, 0.25)   # V4L2 manual mode
     detector = SkinDetector(rebuild_interval=100,coverage=0.07)
-    #backSub = cv2.createBackgroundSubtractorMOG2(history=500, varThreshold=5, detectShadows=False)
-    background = FrozenBackground(alpha=0.01, diff_thresh=20, protect_k=31)
+    backSub = cv2.createBackgroundSubtractorMOG2(history=500, varThreshold=5, detectShadows=False)
+    #background = FrozenBackground(alpha=0.01, diff_thresh=20, protect_k=31)
     hand_prev = None 
 
 
@@ -68,12 +68,12 @@ def main():
 
         # ---- the two raw cues ----
         skin, _ = detector.process(blur)
-        #fg = backSub.apply(blur, learningRate=-1)
+        motion = backSub.apply(blur, learningRate=-1)
 
         # ---- motion minor preprocessing ----
-        motion, protected = background.apply(blur, hand_prev)
+        #motion, protected = background.apply(blur, hand_prev)
         seed = cv2.dilate(motion, K_SEED)
-        seed = cv2.bitwise_or(seed, protected) 
+        #seed = cv2.bitwise_or(seed, protected) 
 
         # ---- skin with motion ----
         skin = cv2.morphologyEx(skin, cv2.MORPH_CLOSE, K_SKIN)
@@ -88,10 +88,17 @@ def main():
 
         for cnt in contours:
             area = cv2.contourArea(cnt)
-            cnt=smooth_contour(cnt,OUTLINE_SIGMA)
-            
             if area < MIN_AREA:
-                continue  # skip speckle
+                            continue  # skip speckle
+            cnt=smooth_contour(cnt,OUTLINE_SIGMA)
+            M = cv2.moments(cnt)
+            if M["m00"] > 0:
+                cx = int(M["m10"] / M["m00"])
+                cy = int(M["m01"] / M["m00"])
+                cv2.circle(frame, (cx, cy), 8, (255, 0, 255), -1)
+
+            
+            
             hull = cv2.convexHull(cnt,returnPoints = False)
             defects = cv2.convexityDefects(cnt,hull)
  
@@ -104,6 +111,8 @@ def main():
                 start=tuple(cnt[s][0]) #start of defect
                 end=tuple(cnt[e][0]) # end of defect
                 far=tuple(cnt[f][0]) #deepes point in the defect (between fingers)
+                if start[1]>cy or end[1]>cy:
+                    continue
                 cv2.line(frame, start,end, (255, 255, 0), 2)
                 cv2.circle(frame, far, 5, (0, 0, 255), -1)
                 cv2.circle(frame, start, 10, (125, 0, 255), -1)
