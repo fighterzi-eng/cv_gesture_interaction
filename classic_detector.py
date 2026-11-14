@@ -1,13 +1,14 @@
 import cv2
 import numpy as np
 from skinDetect import SkinDetector
+from bgsub import FrozenBackground
 
 
 
 SEED_DILATE    = 3     
 SKIN_CLOSE = 1     
 MIN_AREA       = 600   
-OUTLINE_SIGMA  = 1.5  
+OUTLINE_SIGMA  =3
 JOIN_K=5   
 
 
@@ -51,9 +52,10 @@ def main():
     cap = cv2.VideoCapture(0)
     cap.set(cv2.CAP_PROP_AUTO_WB, 0)
     cap.set(cv2.CAP_PROP_AUTO_EXPOSURE, 0.25)   # V4L2 manual mode
-    detector = SkinDetector(rebuild_interval=1,coverage=0.08)
-    backSub = cv2.createBackgroundSubtractorMOG2(
-    history=500, varThreshold=5, detectShadows=False)
+    detector = SkinDetector(rebuild_interval=100,coverage=0.07)
+    #backSub = cv2.createBackgroundSubtractorMOG2(history=500, varThreshold=5, detectShadows=False)
+    background = FrozenBackground(alpha=0.01, diff_thresh=20, protect_k=31)
+    hand_prev = None 
 
 
     while True:
@@ -66,11 +68,12 @@ def main():
 
         # ---- the two raw cues ----
         skin, _ = detector.process(blur)
-        fg = backSub.apply(blur, learningRate=-1)
+        #fg = backSub.apply(blur, learningRate=-1)
 
         # ---- motion minor preprocessing ----
-        fg = cv2.medianBlur(fg, 5)
-        seed = cv2.dilate(fg, K_SEED)
+        motion, protected = background.apply(blur, hand_prev)
+        seed = cv2.dilate(motion, K_SEED)
+        seed = cv2.bitwise_or(seed, protected) 
 
         # ---- skin with motion ----
         skin = cv2.morphologyEx(skin, cv2.MORPH_CLOSE, K_SKIN)
@@ -98,8 +101,13 @@ def main():
             for s, e, f, d in defects:
                 if d / 256.0 < 5:                 # ignore shallow dents
                     continue
-                cv2.line(frame, tuple(cnt[s][0]), tuple(cnt[e][0]), (255, 255, 0), 2)
-                cv2.circle(frame, tuple(cnt[f][0]), 5, (0, 0, 255), -1)
+                start=tuple(cnt[s][0]) #start of defect
+                end=tuple(cnt[e][0]) # end of defect
+                far=tuple(cnt[f][0]) #deepes point in the defect (between fingers)
+                cv2.line(frame, start,end, (255, 255, 0), 2)
+                cv2.circle(frame, far, 5, (0, 0, 255), -1)
+                cv2.circle(frame, start, 10, (125, 0, 255), -1)
+                cv2.circle(frame, end, 10, (125, 0, 255), -1)
             
 
             cv2.drawContours(frame, [cnt], -1, (0, 255, 0), 3)

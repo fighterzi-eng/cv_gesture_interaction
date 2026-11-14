@@ -9,20 +9,40 @@ class SkinDetector:
     CR_MIN = 133          # fixed lower bound for Cr
     CB_MAX = 128          # fixed upper bound for Cb
 
-    def __init__(self, rebuild_interval=60,pct_lo=4, pct_hi=94, coverage=0.12):
+    def __init__(self, rebuild_interval=60,pct_lo=4, pct_hi=94, coverage=0.12,cov_min=0.05,cov_max=0.4,step=0.15,frac_lo=0.2,frac_hi=0.7):
         self.rebuild_interval = rebuild_interval
         self.pct_lo = pct_lo
         self.pct_hi = pct_hi
         self.coverage = coverage
         self.params = None
+        self.cov_min, self.cov_max = cov_min, cov_max    # coverage is clamped to this range
+        self.step = step                                 # relative coverage change per rebuil
+        self.freeze = False                              # set True while a hand is tracked
+        self.frac_lo, self.frac_hi = frac_lo, frac_hi 
+        self.frac = None
         self._frame = 0
         self._kernel = np.ones((5, 5), np.uint8)
+
+    def freeze(self,state:bool):
+        self.freeze=state
+
+    def _adapt_coverage(self):
+        # Higher coverage -> lower cr_max and higher cb_min -> STRICTER mask.
+        if self.frac > self.frac_hi:        
+            self.coverage = min(self.cov_max, self.coverage * (1 + self.step))
+        elif self.frac < self.frac_lo:         
+            self.coverage = max(self.cov_min, self.coverage * (1 - self.step))
+        # between frac_lo and frac_hi: do nothing (dead band)
+
 
     def process(self, bgr):
         #Return (mask, params) for a BGR frame.
         ycrcb = cv2.cvtColor(bgr, cv2.COLOR_BGR2YCrCb)
 
         if self.params is None or self._frame % self.rebuild_interval == 0:
+            if not self.freeze and self.frac is not None:
+                self._adapt_coverage()
+
             new = self._build_params(ycrcb)
             if self.params is None:
                 self.params = new
@@ -37,6 +57,8 @@ class SkinDetector:
 
         mask = ((cr >= self.CR_MIN) & (cr <= cr_up) &
                 (cb >= cb_lo) & (cb <= self.CB_MAX)).astype(np.uint8) * 255
+        frac = np.count_nonzero(mask) / mask.size
+        self.frac = frac if self.frac is None else 0.9 * self.frac + 0.1 * frac
         mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, self._kernel)
         mask = cv2.dilate(mask, np.ones((3, 3), np.uint8), iterations=3)
 
