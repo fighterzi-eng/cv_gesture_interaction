@@ -1,0 +1,125 @@
+{
+  "general": {
+    "show_confirmation": true,
+    "hide_camera": false,
+    "lock_windows": false
+  },
+  "windows": {
+    "hud_pos": [
+      90,
+      56
+    ],
+    "camera_pos": [
+      1255,
+      56
+    ]
+  },
+  "applications": [
+    {
+      "gesture": "five",
+      "name": "Chrome",
+      "path": ""
+    },
+    {
+      "gesture": "two",
+      "name": "Telegram",
+      "path": ""
+    },
+    {
+      "gesture": "one",
+      "name": "Discord",
+      "path": ""
+    },
+    {
+      "gesture": "fist",
+      "name": "Microsoft Edge",
+      "path": ""
+    },
+    {
+      "gesture": "three",
+      "name": "Steam",
+      "path": ""
+    },
+    {
+      "gesture": "four",
+      "name": "Firefox",
+      "path": ""
+    }
+  ],
+  "video_player": [
+    {
+      "gesture": "five",
+      "key": "Space",
+      "action": "Play / Pause"
+    },
+    {
+      "gesture": "one",
+      "key": "→",
+      "action": "Seek forward 10s"
+    },
+    {
+      "gesture": "two",
+      "key": "←",
+      "action": "Seek back 10s"
+    },
+    {
+      "gesture": "three",
+      "key": "↑",
+      "action": "Volume up"
+    },
+    {
+      "gesture": "four",
+      "key": "↓",
+      "action": "Volume down"
+    },
+    {
+      "gesture": "fist",
+      "key": "F",
+      "action": "Fullscreen"
+    }
+  ],
+  "camera": {
+    "index": 0,
+    "resolution": 640,
+    "show_fps": true,
+    "show_landmarks": true,
+    "show_hand_box": true,
+    "auto_white_balance": false,
+    "auto_exposure": false
+  },
+  "detection": {
+    "min_confidence": 0.7,
+    "hold_time": 5,
+    "smoothing_frames": 4,
+    "min_area": 600,
+    "show_accuracy": true
+  },
+  "tracking": {
+    "blur_kernel": 5,
+    "motion_history": 500,
+    "motion_var_threshold": 5,
+    "seed_dilate": 3,
+    "skin_close": 1,
+    "join_k": 5,
+    "outline_sigma": 3
+  },
+  "skin": {
+    "coverage": 0.07,
+    "cov_min": 0.05,
+    "cov_max": 0.4,
+    "step": 0.15,
+    "frac_lo": 0.2,
+    "frac_hi": 0.7,
+    "pct_lo": 4,
+    "pct_hi": 94
+  },
+  "performance": {
+    "rebuild_interval": 100,
+    "max_fps": 30
+  },
+  "logging": {
+    "enabled": false,
+    "level": "INFO",
+    "to_file": false
+  }
+}
