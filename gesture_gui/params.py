@@ -17,8 +17,9 @@ DEFAULTS = {
         "show_confirmation": True,   # show gesture confirmation message
         "hide_camera": False,        # hide the small live preview
         "lock_windows": False,       # True = windows locked in place, False = movable
+        "show_gesture_map": True,    # gesture map window on / off
     },
-    "windows": {"hud_pos": None, "camera_pos": None},   # remembered positions [x, y]
+    "windows": {"hud_pos": None, "camera_pos": None, "map_pos": None},   # remembered positions [x, y]
 
     # Applications mode: gesture -> open program
     "applications": [
@@ -39,28 +40,26 @@ DEFAULTS = {
         {"gesture": "fist",  "key": "F",     "action": "Fullscreen"},
     ],
 
-    # ---- developer settings ----
+    # ---- developer settings: only things that exist in classic_detector.py / skinDetect.py ----
     "camera": {
-        "index": 0, "resolution": 640,
-        "show_fps": True, "show_landmarks": True, "show_hand_box": True,
-        "auto_white_balance": False, "auto_exposure": False,
+        "index": 0,                                  # cv2.VideoCapture(0)
+        "auto_white_balance": False,                 # cap.set(CAP_PROP_AUTO_WB, 0)
+        "auto_exposure": False,                      # cap.set(CAP_PROP_AUTO_EXPOSURE, 0.25)
+        "show_fps": True, "show_landmarks": True, "show_hand_box": True,   # GUI drawing options
     },
-    "detection": {
-        "min_confidence": 0.70, "hold_time": 5, "smoothing_frames": 4,
-        "min_area": 600, "show_accuracy": True,
-    },
-    # values from classic_detector.py
+    # classic_detector.py
     "tracking": {
-        "blur_kernel": 5, "motion_history": 500, "motion_var_threshold": 5,
+        "blur_kernel": 5,                            # cv2.GaussianBlur(frame, (5, 5), 0)
+        "motion_history": 500, "motion_var_threshold": 5,   # createBackgroundSubtractorMOG2(...)
         "seed_dilate": 3, "skin_close": 1, "join_k": 5, "outline_sigma": 3,
+        "min_area": 600,                             # MIN_AREA
     },
-    # values from skinDetect.py (SkinDetector arguments)
+    # skinDetect.py (SkinDetector arguments)
     "skin": {
+        "rebuild_interval": 100,
         "coverage": 0.07, "cov_min": 0.05, "cov_max": 0.40, "step": 0.15,
         "frac_lo": 0.20, "frac_hi": 0.70, "pct_lo": 4, "pct_hi": 94,
     },
-    "performance": {"rebuild_interval": 100, "max_fps": 30},
-    "logging": {"enabled": False, "level": "INFO", "to_file": False},
 }
 
 

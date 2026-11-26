@@ -27,8 +27,10 @@ class UserSettingsDialog(DialogWindow):
     applied = Signal(dict)
     modeChanged = Signal(str)
     W, H = 880, 740
+    MIN = (760, 520)
 
     TOGGLES = [("show_confirmation", "Show gesture confirmation message"),
+               ("show_gesture_map", "Show gesture map"),
                ("hide_camera", "Hide camera"),
                ("lock_windows", "Lock windows in place")]
 

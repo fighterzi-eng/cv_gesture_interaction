@@ -4,12 +4,12 @@ from __future__ import annotations
 
 from functools import lru_cache
 
-from PySide6.QtCore import (QEvent, QFileInfo, QObject, QPoint, QRectF, QSize, Qt,
+from PySide6.QtCore import (QPointF, QEvent, QFileInfo, QObject, QPoint, QRectF, QSize, Qt,
                             QVariantAnimation, Signal)
 from PySide6.QtGui import (QColor, QFont, QFontMetrics, QGuiApplication, QIcon, QImage,
                            QKeySequence, QLinearGradient, QPainter, QPainterPath, QPen,
-                           QPixmap, QTransform)
-from PySide6.QtWidgets import (QComboBox, QFileIconProvider, QLineEdit,
+                           QPixmap, QPolygonF, QTransform)
+from PySide6.QtWidgets import (QAbstractScrollArea, QSizeGrip, QComboBox, QFileIconProvider, QLineEdit,
                                QFrame, QHBoxLayout, QLabel, QPushButton,
                                QStyle, QStyledItemDelegate, QToolButton, QVBoxLayout,
                                QWidget, QAbstractButton)
@@ -85,20 +85,61 @@ class OverlayWindow(QWidget):
         self.closed.emit()
 
 
+class DialogMoveFilter(QObject):
+    """Drag a settings window by its empty areas (panel / labels). Buttons, fields, lists are ignored."""
+
+    def __init__(self, window):
+        super().__init__(window)
+        self._w, self._press = window, None
+
+    def eventFilter(self, obj, e):
+        t = e.type()
+        if t == QEvent.MouseButtonPress and e.button() == Qt.LeftButton:
+            plain = isinstance(obj, (QLabel, QFrame)) and not isinstance(obj, QAbstractScrollArea)
+            self._press = e.globalPosition().toPoint() if (plain or obj is self._w) else None
+        elif t == QEvent.MouseButtonRelease:
+            self._press = None
+        elif t == QEvent.MouseMove and self._press is not None and (e.buttons() & Qt.LeftButton):
+            if (e.globalPosition().toPoint() - self._press).manhattanLength() > 6:
+                self._press = None
+                h = self._w.windowHandle()
+                if h:
+                    h.startSystemMove()
+        return False
+
+
 class DialogWindow(OverlayWindow):
-    """Big settings window, centred on the primary screen."""
+    """Big settings window: movable (drag empty areas), resizable (bottom-right grip),
+    centred on the primary screen the first time it opens."""
     W, H = 880, 700
+    MIN = (700, 480)
 
     def __init__(self):
         super().__init__(activating=True)
+        self.setMinimumSize(*self.MIN)
+        self._placed = False
+        self._mover = DialogMoveFilter(self)
+        self._grip = QSizeGrip(self)
+        self._grip.setFixedSize(20, 20)
+        self._grip.setCursor(Qt.SizeFDiagCursor)
+
+    def resizeEvent(self, e):
+        super().resizeEvent(e)
+        self._grip.move(self.width() - 22, self.height() - 22)
+        self._grip.raise_()
 
     def show_centered(self):
         scr = QGuiApplication.primaryScreen().availableGeometry()
-        self.setFixedSize(min(self.W, scr.width() - 40), min(self.H, scr.height() - 40))
-        self.move(scr.center() - QPoint(self.width() // 2, self.height() // 2))
+        if not self._placed:                       # size + position only the first time
+            self._placed = True
+            self.resize(min(self.W, scr.width() - 40), min(self.H, scr.height() - 40))
+            self.move(scr.center() - QPoint(self.width() // 2, self.height() // 2))
+        for wd in [self] + self.findChildren(QWidget):
+            wd.installEventFilter(self._mover)
         self.show()
         self.raise_()
         self.activateWindow()
+        self._grip.raise_()
 
     def keyPressEvent(self, e):
         if e.key() == Qt.Key_Escape:
@@ -466,7 +507,8 @@ class CameraView(QWidget):
         self._lm = []               # [(x, y)] normalised
         self._conf = None
         self._label = ""
-        self.show_fps = self.show_landmarks = self.show_box = self.show_accuracy = True
+        self._shapes = None         # (contours, lines, points) normalised, drawn like classic_detector
+        self.show_fps = self.show_landmarks = self.show_box = True
 
     # ---- feed (called by the project)
     def set_frame(self, img: QImage):
@@ -481,9 +523,14 @@ class CameraView(QWidget):
         self._box, self._lm, self._conf, self._label = box, landmarks or [], confidence, label
         self.update()
 
-    def set_options(self, show_fps, show_landmarks, show_box, show_accuracy):
-        self.show_fps, self.show_landmarks = show_fps, show_landmarks
-        self.show_box, self.show_accuracy = show_box, show_accuracy
+    def set_shapes(self, contours=None, lines=None, points=None):
+        """contours=[[(x,y)..]], lines=[((x,y),(x,y))], points=[((x,y), kind)] with kind in
+        'centroid' | 'tip' | 'far'; all normalised 0..1. Same drawing as classic_detector.py."""
+        self._shapes = (contours or [], lines or [], points or []) if (contours or lines or points) else None
+        self.update()
+
+    def set_options(self, show_fps, show_landmarks, show_box):
+        self.show_fps, self.show_landmarks, self.show_box = show_fps, show_landmarks, show_box
         self.update()
 
     # ---- painting
@@ -535,14 +582,34 @@ class CameraView(QWidget):
             p.drawText(r, Qt.AlignCenter, "Waiting for camera…")
         mp = lambda x, y: (ox + x * dw, oy + y * dh)
 
-        if self.show_box and self._box:
+        if self._shapes:
+            contours, lines, pts_ = self._shapes
+            if self.show_box:                                  # hand outline + hull lines
+                p.setBrush(Qt.NoBrush)
+                p.setPen(QPen(QColor(0, 255, 0), 2))
+                for c in contours:
+                    p.drawPolygon(QPolygonF([QPointF(*mp(*q)) for q in c]))
+                p.setPen(QPen(QColor(0, 255, 255), 2))
+                for a, b in lines:
+                    (x1, y1), (x2, y2) = mp(*a), mp(*b)
+                    p.drawLine(QPointF(x1, y1), QPointF(x2, y2))
+            if self.show_landmarks:                            # centroid / fingertips / valleys
+                cols = {"centroid": (QColor(255, 0, 255), 5), "tip": (QColor(255, 0, 125), 5),
+                        "far": (QColor(255, 0, 0), 3.5)}
+                p.setPen(Qt.NoPen)
+                for q, kind in pts_:
+                    col, rad = cols[kind]
+                    x, y = mp(*q)
+                    p.setBrush(col)
+                    p.drawEllipse(QPointF(x, y), rad, rad)
+        if self.show_box and self._box and not self._shapes:
             x, y = mp(self._box[0], self._box[1])
             bw, bh = self._box[2] * dw, self._box[3] * dh
             p.setPen(QPen(QColor(theme.ORANGE2), 2))
             p.setBrush(QColor(255, 154, 60, 30))
             p.drawRoundedRect(QRectF(x, y, bw, bh), 6, 6)
             parts = [t for t in (self._label,
-                                 f"{self._conf * 100:.0f}%" if (self.show_accuracy and self._conf is not None) else "")
+                                 f"{self._conf * 100:.0f}%" if self._conf is not None else "")
                      if t]
             if parts:
                 self._pill(p, x, max(r.top() + 4, y - 24 * self._scale), "  ".join(parts),
@@ -571,57 +638,59 @@ class CameraView(QWidget):
 
 
 # ----------------------------------------------------------------- test window
-class TestWindow(QFrame):
-    """Floating black/white mask viewer (motion / blob) inside the developer camera view."""
+class TestWindow(QWidget):
+    """Normal standalone window (own title bar, movable anywhere on screen, not bound to the camera view)
+    showing the three black/white views of classic_detector.py: Skin / Motion seed / Hand mask."""
     closed = Signal()
+    VIEWS = (("skin", "Skin"), ("motion", "Motion (seed)"), ("hand", "Hand mask"))
 
-    def __init__(self, parent):
-        super().__init__(parent)
+    def __init__(self, parent=None):
+        super().__init__(None, Qt.Tool | Qt.WindowStaysOnTopHint | Qt.WindowTitleHint
+                         | Qt.WindowCloseButtonHint)
+        self.setWindowTitle("Test window")
         self.setObjectName("testWin")
-        self.setFixedSize(460, 240)
+        self.resize(660, 270)
+        self.setMinimumSize(420, 200)
         v = QVBoxLayout(self)
-        v.setContentsMargins(2, 2, 2, 2)
-        v.setSpacing(0)
-        self._head = QWidget()
-        self._head.setObjectName("testHead")
-        self._head.setFixedHeight(28)
-        h = QHBoxLayout(self._head)
-        h.setContentsMargins(12, 0, 6, 0)
-        t = QLabel("Test window")
-        t.setStyleSheet("font-weight:700;font-size:12px;")
-        x = QToolButton()
-        x.setObjectName("testClose")
-        x.setText("✕")
-        x.clicked.connect(self._close)
-        h.addWidget(t)
-        h.addStretch()
-        h.addWidget(x)
-        self.view = QLabel("No mask yet")
-        self.view.setAlignment(Qt.AlignCenter)
-        self.view.setStyleSheet(f"background:#000;color:{theme.MUTED};")
-        v.addWidget(self._head)
-        v.addWidget(self.view, 1)
-        self._off = None
-        self._head.installEventFilter(self)
+        v.setContentsMargins(6, 6, 6, 6)
+        v.setSpacing(4)
+        self.status = QLabel("")
+        self.status.setStyleSheet(f"color:{theme.MUTED};font-size:11px;")
+        v.addWidget(self.status)
+        row = QHBoxLayout()
+        row.setSpacing(6)
+        self.views = {}
+        for key, title in self.VIEWS:
+            col = QVBoxLayout()
+            col.setSpacing(2)
+            cap = QLabel(title)
+            cap.setAlignment(Qt.AlignCenter)
+            cap.setStyleSheet(f"color:{theme.AMBER};font-size:11px;font-weight:700;")
+            lab = QLabel("No data yet")
+            lab.setAlignment(Qt.AlignCenter)
+            lab.setMinimumSize(120, 120)
+            lab.setStyleSheet(f"background:#000;color:{theme.MUTED};")
+            col.addWidget(cap)
+            col.addWidget(lab, 1)
+            row.addLayout(col, 1)
+            self.views[key] = lab
+        v.addLayout(row, 1)
 
-    def _close(self):
-        self.hide()
+    def closeEvent(self, e):
+        super().closeEvent(e)
         self.closed.emit()
 
-    def set_mask(self, img: QImage):
-        if self.isVisible():
-            self.view.setPixmap(QPixmap.fromImage(img).scaled(
-                self.view.size(), Qt.KeepAspectRatio, Qt.FastTransformation))
+    def set_masks(self, skin=None, motion=None, hand=None):
+        if not self.isVisible():
+            return
+        for key, img in (("skin", skin), ("motion", motion), ("hand", hand)):
+            if img is not None:
+                lab = self.views[key]
+                lab.setPixmap(QPixmap.fromImage(img).scaled(
+                    lab.size(), Qt.KeepAspectRatio, Qt.FastTransformation))
 
-    def eventFilter(self, o, e):
-        if o is self._head:
-            if e.type() == QEvent.MouseButtonPress:
-                self._off = e.globalPosition().toPoint() - self.pos()
-            elif e.type() == QEvent.MouseMove and self._off is not None:
-                n = e.globalPosition().toPoint() - self._off
-                pr = self.parentWidget().rect()
-                self.move(max(0, min(n.x(), pr.width() - self.width())),
-                          max(0, min(n.y(), pr.height() - self.height())))
-            elif e.type() == QEvent.MouseButtonRelease:
-                self._off = None
-        return super().eventFilter(o, e)
+    def set_mask(self, img: QImage):
+        self.set_masks(hand=img)
+
+    def set_status(self, text):
+        self.status.setText(text)

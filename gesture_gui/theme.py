@@ -79,7 +79,7 @@ QComboBox#gestureCombo::down-arrow { image:url($ARROW); width:10px; height:10px;
 QComboBox#gestureCombo[slot="filled"]::down-arrow { image:none; }
 QComboBox QAbstractItemView { background:$BG; border:2px solid $ORANGE; border-radius:12px; padding:4px; selection-background-color:transparent; }
 
-#testWin { background:#000; border:2px solid #cfcfd6; border-radius:8px; }
+#testWin { background:#0d0d10; }
 #testHead { background:#1b1b20; border-top-left-radius:6px; border-top-right-radius:6px; }
 
 QScrollArea { background:transparent; border:none; }

@@ -14,58 +14,47 @@ from widgets import (CameraView, CollapsibleSection, DialogWindow, TestWindow, T
 # ("#", "Title") is a sub heading.
 SECTIONS = [
     ("Camera", True, [
-        ("camera", "index", "Camera index", "int", 0, 10, 1),
-        ("camera", "resolution", "Resolution (px)", "int", 160, 1920, 80),
-        ("camera", "show_fps", "Show FPS", "bool"),
-        ("camera", "show_landmarks", "Show hand landmarks", "bool"),
-        ("camera", "show_hand_box", "Show hand square", "bool"),
-        ("camera", "auto_white_balance", "Auto white balance", "bool"),
-        ("camera", "auto_exposure", "Auto exposure", "bool"),
+        ("camera", "index", "Camera index (VideoCapture)", "int", 0, 10, 1),
+        ("camera", "auto_white_balance", "Auto white balance (AUTO_WB)", "bool"),
+        ("camera", "auto_exposure", "Auto exposure (AUTO_EXPOSURE)", "bool"),
     ]),
-    ("Detection", True, [
-        ("detection", "min_confidence", "Min confidence", "float", 0.0, 1.0, 0.05, 2),
-        ("detection", "hold_time", "Hold time (s)", "int", 1, 30, 1),
-        ("detection", "smoothing_frames", "Smoothing frames", "int", 1, 30, 1),
-        ("detection", "min_area", "Min hand area (px²)", "int", 0, 100000, 50),
-        ("detection", "show_accuracy", "Show accuracy", "bool"),
+    ("Camera view display (GUI only)", True, [
+        ("camera", "show_fps", "Show FPS", "bool"),
+        ("camera", "show_landmarks", "Show points: centroid, fingertips, valleys", "bool"),
+        ("camera", "show_hand_box", "Show hand outline and hull lines", "bool"),
         ("@", "test"),                                   # 'Show test window' button
     ]),
-    ("Tracking filter", False, [
-        ("#", "Motion / mask"),
-        ("tracking", "blur_kernel", "Blur kernel", "int", 1, 31, 2),
-        ("tracking", "motion_history", "Motion history", "int", 1, 5000, 10),
-        ("tracking", "motion_var_threshold", "Motion var threshold", "int", 1, 255, 1),
-        ("tracking", "seed_dilate", "Seed dilate", "int", 1, 31, 1),
-        ("tracking", "skin_close", "Skin close", "int", 1, 31, 1),
-        ("tracking", "join_k", "Join kernel", "int", 1, 31, 1),
-        ("tracking", "outline_sigma", "Outline sigma", "int", 1, 20, 1),
-        ("#", "Skin model"),
-        ("skin", "coverage", "Coverage", "float", 0.0, 1.0, 0.01, 2),
-        ("skin", "cov_min", "Coverage min", "float", 0.0, 1.0, 0.01, 2),
-        ("skin", "cov_max", "Coverage max", "float", 0.0, 1.0, 0.01, 2),
-        ("skin", "step", "Coverage step", "float", 0.0, 1.0, 0.01, 2),
-        ("skin", "frac_lo", "Fraction low", "float", 0.0, 1.0, 0.01, 2),
-        ("skin", "frac_hi", "Fraction high", "float", 0.0, 1.0, 0.01, 2),
-        ("skin", "pct_lo", "Percentile low", "int", 0, 100, 1),
-        ("skin", "pct_hi", "Percentile high", "int", 0, 100, 1),
+    ("Hand detection (classic_detector.py)", False, [
+        ("#", "Preprocessing"),
+        ("tracking", "blur_kernel", "Blur size (GaussianBlur)", "int", 1, 31, 2),
+        ("tracking", "motion_history", "Motion history (MOG2 history)", "int", 1, 5000, 10),
+        ("tracking", "motion_var_threshold", "Motion sensitivity (MOG2 varThreshold)", "int", 1, 255, 1),
+        ("#", "Mask clean-up"),
+        ("tracking", "seed_dilate", "Motion dilate (SEED_DILATE)", "int", 1, 31, 1),
+        ("tracking", "skin_close", "Skin close (SKIN_CLOSE)", "int", 1, 31, 1),
+        ("tracking", "join_k", "Join gaps (JOIN_K)", "int", 1, 31, 1),
+        ("tracking", "outline_sigma", "Outline smoothing (OUTLINE_SIGMA)", "int", 1, 20, 1),
+        ("tracking", "min_area", "Smallest hand size, px² (MIN_AREA)", "int", 0, 100000, 50),
     ]),
-    ("Performance", False, [
-        ("performance", "rebuild_interval", "Skin rebuild interval (frames)", "int", 1, 1000, 10),
-        ("performance", "max_fps", "Max FPS", "int", 1, 120, 1),
-    ]),
-    ("Logging", False, [
-        ("logging", "enabled", "Enable logging", "bool"),
-        ("logging", "level", "Log level", "choice", ["DEBUG", "INFO", "WARNING", "ERROR"]),
-        ("logging", "to_file", "Log to file", "bool"),
+    ("Skin detection (skinDetect.py)", False, [
+        ("skin", "rebuild_interval", "Rebuild every N frames (rebuild_interval)", "int", 1, 1000, 10),
+        ("skin", "coverage", "Skin coverage (coverage)", "float", 0.0, 1.0, 0.01, 2),
+        ("skin", "cov_min", "Coverage min (cov_min)", "float", 0.0, 1.0, 0.01, 2),
+        ("skin", "cov_max", "Coverage max (cov_max)", "float", 0.0, 1.0, 0.01, 2),
+        ("skin", "step", "Coverage step (step)", "float", 0.0, 1.0, 0.01, 2),
+        ("skin", "frac_lo", "Skin fraction low (frac_lo)", "float", 0.0, 1.0, 0.01, 2),
+        ("skin", "frac_hi", "Skin fraction high (frac_hi)", "float", 0.0, 1.0, 0.01, 2),
+        ("skin", "pct_lo", "Brightness percentile low (pct_lo)", "int", 0, 100, 1),
+        ("skin", "pct_hi", "Brightness percentile high (pct_hi)", "int", 0, 100, 1),
     ]),
 ]
-LIVE_OPTIONS = {("camera", "show_fps"), ("camera", "show_landmarks"),
-                ("camera", "show_hand_box"), ("detection", "show_accuracy")}
+LIVE_OPTIONS = {("camera", "show_fps"), ("camera", "show_landmarks"), ("camera", "show_hand_box")}
 
 
 class DeveloperSettingsDialog(DialogWindow):
     applied = Signal(dict)
     W, H = 1400, 690
+    MIN = (940, 500)
 
     def __init__(self, params):
         super().__init__()
@@ -82,7 +71,7 @@ class DeveloperSettingsDialog(DialogWindow):
 
         self.view = CameraView(radius=12, scale=1.1)
         self.view.setMinimumWidth(360)
-        self.test = TestWindow(self.view)
+        self.test = TestWindow()
         self.test.hide()
         self.test.closed.connect(self._test_closed)
         h.addWidget(self.view, 1)
@@ -186,12 +175,17 @@ class DeveloperSettingsDialog(DialogWindow):
     def _preview_options(self):
         g = lambda a, b: self._w[(a, b)].isChecked()
         self.view.set_options(g("camera", "show_fps"), g("camera", "show_landmarks"),
-                              g("camera", "show_hand_box"), g("detection", "show_accuracy"))
+                              g("camera", "show_hand_box"))
 
     def open_dialog(self):
         self._load()
         self._preview_options()
         self.show_centered()
+
+    def hideEvent(self, e):
+        super().hideEvent(e)
+        if self.test.isVisible():          # test window follows the developer dialog
+            self.test.close()
 
     # ---------------------------------------------------------------- test window
     def _toggle_test(self):
@@ -199,10 +193,12 @@ class DeveloperSettingsDialog(DialogWindow):
             self.test.hide()
             self._test_closed()
         else:
-            self.test.move((self.view.width() - self.test.width()) // 2,
-                           self.view.height() - self.test.height() - 50)
+            if not self.test.isVisible() and not getattr(self, "_test_placed", False):
+                self._test_placed = True
+                self.test.move(self.x() + 40, self.y() + self.height() - self.test.height() - 40)
             self.test.show()
-            self.test.raise_()
+            self.test.raise_()                 # opens above the dialog; later clicks reorder them normally
+            self.test.activateWindow()
             self.btn_test.setText("Hide test window")
 
     def _test_closed(self):
@@ -215,7 +211,7 @@ class DeveloperSettingsDialog(DialogWindow):
         self.applied.emit(self._params)
 
     def _reset(self):
-        for g in ("camera", "detection", "tracking", "skin", "performance", "logging"):
+        for g in ("camera", "tracking", "skin"):
             self._params[g] = copy.deepcopy(DEFAULTS[g])
         self._load()
         save_parameters(self._params)       # defaults written to the json straight away

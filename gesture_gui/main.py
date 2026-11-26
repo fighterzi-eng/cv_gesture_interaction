@@ -16,6 +16,12 @@ def main():
     gui.quitRequested.connect(app.quit)
     app.aboutToQuit.connect(gui.save_now)
     gui.show()
+    if "--demo" in sys.argv:
+        from demo import Demo
+        gui._demo = Demo(gui)
+    else:
+        gui.start_backend()                       # calls skinDetect.py / classic_detector.py functions
+        app.aboutToQuit.connect(gui.stop_backend)
     sys.exit(app.exec())
 
 

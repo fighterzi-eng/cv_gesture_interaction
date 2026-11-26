@@ -33,7 +33,8 @@ class HamburgerButton(QAbstractButton):
 
 
 class HudWindow(OverlayWindow):
-    """Hamburger menu (User / Developer settings) + gesture legend list."""
+    """Hamburger menu only: User settings / Developer settings / Quit.
+    The gesture map lives in its own window (GestureMapWindow) so moving this menu never moves it."""
     userSettingsRequested = Signal()
     developerSettingsRequested = Signal()
     quitRequested = Signal()
@@ -43,10 +44,8 @@ class HudWindow(OverlayWindow):
         self.mode = "applications"
         root = QVBoxLayout(self)
         root.setContentsMargins(0, 0, 0, 0)
-        root.setSpacing(10)
         root.setSizeConstraint(QLayout.SetFixedSize)
 
-        # --- menu
         self.menu = QFrame()
         self.menu.setObjectName("menuPanel")
         mh = QHBoxLayout(self.menu)
@@ -63,22 +62,16 @@ class HudWindow(OverlayWindow):
         iv.setSpacing(4)
         self.btn_user = self._item("⚙   User settings")
         self.btn_dev = self._item("🛠   Developer settings")
+        self.btn_quit = self._item("⏻   Quit")
         self.btn_user.clicked.connect(self.userSettingsRequested)
         self.btn_dev.clicked.connect(self.developerSettingsRequested)
-        iv.addWidget(self.btn_user)
-        iv.addWidget(self.btn_dev)
+        self.btn_quit.clicked.connect(self.quitRequested)
+        for b in (self.btn_user, self.btn_dev, self.btn_quit):
+            iv.addWidget(b)
         mh.addWidget(self.burger)
         mh.addWidget(self.sep)
         mh.addWidget(self.items)
         root.addWidget(self.menu, 0, Qt.AlignLeft)
-
-        # --- legend
-        self.legend = QFrame()
-        self.legend.setObjectName("legendPanel")
-        self._lv = QVBoxLayout(self.legend)
-        self._lv.setContentsMargins(8, 8, 8, 8)
-        self._lv.setSpacing(6)
-        root.addWidget(self.legend, 0, Qt.AlignLeft)
         self.set_menu_open(False)
 
     def _item(self, text):
@@ -105,6 +98,28 @@ class HudWindow(OverlayWindow):
             b.setProperty("active", "true" if which == k else "false")
             b.style().unpolish(b)
             b.style().polish(b)
+
+    def contextMenuEvent(self, e):
+        m = QMenu(self)
+        m.addAction("Quit").triggered.connect(self.quitRequested)
+        m.exec(e.globalPos())
+
+
+class GestureMapWindow(OverlayWindow):
+    """Separate, independently movable gesture list (gesture -> app icon / key)."""
+
+    def __init__(self):
+        super().__init__()
+        self.mode = "applications"
+        root = QVBoxLayout(self)
+        root.setContentsMargins(0, 0, 0, 0)
+        root.setSizeConstraint(QLayout.SetFixedSize)
+        self.legend = QFrame()
+        self.legend.setObjectName("legendPanel")
+        self._lv = QVBoxLayout(self.legend)
+        self._lv.setContentsMargins(8, 8, 8, 8)
+        self._lv.setSpacing(6)
+        root.addWidget(self.legend, 0, Qt.AlignLeft)
 
     def set_legend(self, mode, params):
         """mode: 'applications' (gesture -> app icon) or 'video_player' (gesture -> key)."""
@@ -139,11 +154,6 @@ class HudWindow(OverlayWindow):
         self.legend.setVisible(bool(items))
         self.adjustSize()
         self.refresh_drag()
-
-    def contextMenuEvent(self, e):
-        m = QMenu(self)
-        m.addAction("Quit").triggered.connect(self.quitRequested)
-        m.exec(e.globalPos())
 
 
 class CameraPreviewWindow(OverlayWindow):
