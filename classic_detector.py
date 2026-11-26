@@ -1,7 +1,6 @@
 import cv2
 import numpy as np
 from skinDetect import SkinDetector
-from bgsub import FrozenBackground
 
 
 
@@ -54,8 +53,6 @@ def main():
     cap.set(cv2.CAP_PROP_AUTO_EXPOSURE, 0.25)   # V4L2 manual mode
     detector = SkinDetector(rebuild_interval=100,coverage=0.07)
     backSub = cv2.createBackgroundSubtractorMOG2(history=500, varThreshold=5, detectShadows=False)
-    #background = FrozenBackground(alpha=0.01, diff_thresh=20, protect_k=31)
-    hand_prev = None 
 
 
     while True:
@@ -71,9 +68,7 @@ def main():
         motion = backSub.apply(blur, learningRate=-1)
 
         # ---- motion minor preprocessing ----
-        #motion, protected = background.apply(blur, hand_prev)
         seed = cv2.dilate(motion, K_SEED)
-        #seed = cv2.bitwise_or(seed, protected) 
 
         # ---- skin with motion ----
         skin = cv2.morphologyEx(skin, cv2.MORPH_CLOSE, K_SKIN)
