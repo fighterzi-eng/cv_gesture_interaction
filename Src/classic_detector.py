@@ -1,14 +1,18 @@
 import cv2
 import numpy as np
-from skinDetect import SkinDetector
+from Src.skinDetect import SkinDetector
+from Src.params import load_parameters
 
 
 
-SEED_DILATE    = 3     
-SKIN_CLOSE = 1     
-MIN_AREA       = 600   
-OUTLINE_SIGMA  =3
-JOIN_K=5   
+params = load_parameters()
+camera, tracking = params["camera"], params["tracking"]
+
+SEED_DILATE    = tracking["seed_dilate"]
+SKIN_CLOSE = tracking["skin_close"]
+MIN_AREA       = tracking["min_area"]
+OUTLINE_SIGMA  = tracking["outline_sigma"]
+JOIN_K = tracking["join_k"]   
 
 
 K_SEED = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (SEED_DILATE, SEED_DILATE))
@@ -48,11 +52,11 @@ def clean_hand_contour(mask):
 
 
 def main():
-    cap = cv2.VideoCapture(0)
-    cap.set(cv2.CAP_PROP_AUTO_WB, 0)
-    cap.set(cv2.CAP_PROP_AUTO_EXPOSURE, 0.25)   # V4L2 manual mode
-    detector = SkinDetector(rebuild_interval=100,coverage=0.07)
-    backSub = cv2.createBackgroundSubtractorMOG2(history=500, varThreshold=5, detectShadows=False)
+    cap = cv2.VideoCapture(camera["index"])
+    cap.set(cv2.CAP_PROP_AUTO_WB, 1 if camera["auto_white_balance"] else 0)
+    cap.set(cv2.CAP_PROP_AUTO_EXPOSURE, 0.75 if camera["auto_exposure"] else 0.25)   # V4L2: 0.25 manual, 0.75 auto
+    detector = SkinDetector()
+    backSub = cv2.createBackgroundSubtractorMOG2(history=tracking["motion_history"], varThreshold=tracking["motion_var_threshold"], detectShadows=False)
 
 
     while True:
@@ -61,7 +65,7 @@ def main():
             break
 
         frame = cv2.flip(frame, 1)
-        blur = cv2.GaussianBlur(frame, (5, 5), 0)
+        blur = cv2.GaussianBlur(frame, (tracking["blur_kernel"], tracking["blur_kernel"]), 0)
 
         # ---- the two raw cues ----
         skin, _ = detector.process(blur)

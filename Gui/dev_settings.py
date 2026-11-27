@@ -7,8 +7,8 @@ from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import (QComboBox, QFrame, QHBoxLayout, QLabel, QPushButton, QScrollArea,
                                QVBoxLayout, QWidget)
 
-from params import DEFAULTS, save_parameters
-from widgets import (CameraView, CollapsibleSection, DialogWindow, TestWindow, Toggle, make_spin)
+from Src.params import DEFAULTS, save_parameters
+from Gui.widgets import (CameraView, CollapsibleSection, DialogWindow, TestWindow, Toggle, make_spin)
 
 # (group, key, label, type, ...)  type: bool | int lo hi step | float lo hi step dec | choice [options]
 # ("#", "Title") is a sub heading.
@@ -170,6 +170,8 @@ class DeveloperSettingsDialog(DialogWindow):
                 v = w.currentText()
             else:
                 v = w.value()
+            if (g, k) == ("tracking", "blur_kernel"):
+                v += 1 - v % 2                  # GaussianBlur needs an odd size
             self._params[g][k] = v
 
     def _preview_options(self):

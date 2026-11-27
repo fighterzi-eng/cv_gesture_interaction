@@ -11,11 +11,11 @@ from PySide6.QtGui import (QColor, QFont, QFontMetrics, QGuiApplication, QIcon, 
                            QPixmap, QPolygonF, QTransform)
 from PySide6.QtWidgets import (QAbstractScrollArea, QSizeGrip, QComboBox, QFileIconProvider, QLineEdit,
                                QFrame, QHBoxLayout, QLabel, QPushButton,
-                               QStyle, QStyledItemDelegate, QToolButton, QVBoxLayout,
+                               QStyle, QStyledItemDelegate, QVBoxLayout,
                                QWidget, QAbstractButton)
 
-import theme
-from params import GESTURES, GESTURE_NAMES
+from Gui import theme
+from Src.params import GESTURES, GESTURE_NAMES
 
 
 # ----------------------------------------------------------------- frames -> QImage

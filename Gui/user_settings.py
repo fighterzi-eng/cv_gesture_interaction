@@ -9,8 +9,8 @@ from PySide6.QtCore import QSize, QTimer, Qt, Signal
 from PySide6.QtWidgets import (QButtonGroup, QFileDialog, QFrame, QHBoxLayout, QLabel,
                                QLineEdit, QPushButton, QScrollArea, QToolButton, QVBoxLayout, QWidget)
 
-from params import DEFAULTS, GESTURES, save_parameters
-from widgets import (DialogWindow, GestureCombo, KeyCaptureButton, Toggle, app_pixmap)
+from Src.params import DEFAULTS, GESTURES, save_parameters
+from Gui.widgets import (DialogWindow, GestureCombo, KeyCaptureButton, Toggle, app_pixmap)
 from PySide6.QtGui import QIcon
 
 COL1, COL2 = 210, 230

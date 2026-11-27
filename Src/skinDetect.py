@@ -1,6 +1,7 @@
 # skin_detector.py
 import cv2
 import numpy as np
+from Src.params import load_parameters
 # a performance improvement can be using lut and precomputed values
 class SkinDetector:
 
@@ -9,16 +10,17 @@ class SkinDetector:
     CR_MIN = 133          # fixed lower bound for Cr
     CB_MAX = 128          # fixed upper bound for Cb
 
-    def __init__(self, rebuild_interval=60,pct_lo=4, pct_hi=94, coverage=0.12,cov_min=0.05,cov_max=0.4,step=0.15,frac_lo=0.2,frac_hi=0.7):
-        self.rebuild_interval = rebuild_interval
-        self.pct_lo = pct_lo
-        self.pct_hi = pct_hi
-        self.coverage = coverage
+    def __init__(self):
+        p = load_parameters()["skin"]
+        self.rebuild_interval = p["rebuild_interval"]
+        self.pct_lo = p["pct_lo"]
+        self.pct_hi = p["pct_hi"]
+        self.coverage = p["coverage"]
         self.params = None
-        self.cov_min, self.cov_max = cov_min, cov_max    # coverage is clamped to this range
-        self.step = step                                 # relative coverage change per rebuil
+        self.cov_min, self.cov_max = p["cov_min"], p["cov_max"]    # coverage is clamped to this range
+        self.step = p["step"]                                 # relative coverage change per rebuil
         self.freeze = False                              # set True while a hand is tracked
-        self.frac_lo, self.frac_hi = frac_lo, frac_hi 
+        self.frac_lo, self.frac_hi = p["frac_lo"], p["frac_hi"] 
         self.frac = None
         self._frame = 0
         self._kernel = np.ones((5, 5), np.uint8)

@@ -3,14 +3,14 @@ from __future__ import annotations
 
 import math
 
-from PySide6.QtCore import QPoint, QRectF, QSize, Qt, Signal
+from PySide6.QtCore import QRectF, Qt, Signal
 from PySide6.QtGui import QColor, QFont, QGuiApplication, QPainter, QPen
 from PySide6.QtWidgets import (QAbstractButton, QFrame, QHBoxLayout, QLabel, QLayout,
                                QMenu, QPushButton, QVBoxLayout, QWidget)
 
-import theme
-from params import GESTURE_NAMES
-from widgets import CameraView, OverlayWindow, app_pixmap, gesture_pixmap
+from Gui import theme
+from Src.params import GESTURE_NAMES
+from Gui.widgets import CameraView, OverlayWindow, app_pixmap, gesture_pixmap
 
 
 class HamburgerButton(QAbstractButton):

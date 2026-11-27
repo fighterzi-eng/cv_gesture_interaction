@@ -2,17 +2,15 @@
 This is the only object the rest of the project needs to talk to."""
 from __future__ import annotations
 
-import os
-import sys
 import time
 
 from PySide6.QtCore import QObject, QPoint, QTimer, Signal
 from PySide6.QtGui import QGuiApplication, QImage
 
-from dev_settings import DeveloperSettingsDialog
-from overlay import CameraPreviewWindow, GestureMapWindow, HudWindow, ToastWindow
-from params import load_parameters, save_parameters
-from user_settings import UserSettingsDialog
+from Gui.dev_settings import DeveloperSettingsDialog
+from Gui.overlay import CameraPreviewWindow, GestureMapWindow, HudWindow, ToastWindow
+from Src.params import load_parameters, save_parameters
+from Gui.user_settings import UserSettingsDialog
 
 
 class GestureGui(QObject):
@@ -132,6 +130,8 @@ class GestureGui(QObject):
 
     def _on_applied(self, _):
         self._apply_params()
+        if self._backend:
+            self._apply_backend()                  # json was just saved by the dialog
         self.parametersApplied.emit(self.params)
 
     def _update_map_visibility(self):
@@ -146,8 +146,6 @@ class GestureGui(QObject):
         c = self.params["camera"]
         for v in (self.preview.view, self.dev_dlg.view):
             v.set_options(c["show_fps"], c["show_landmarks"], c["show_hand_box"])
-        if self._backend:
-            self._apply_backend()
         self.gmap.set_legend(self.gmap.mode, self.params)
         self._update_map_visibility()
         self._update_preview_visibility()
@@ -156,15 +154,10 @@ class GestureGui(QObject):
     def start_backend(self):
         """Feed the GUI by calling the functions that already exist in the two backend files:
         SkinDetector.process, classic_detector.clean_hand_contour and smooth_contour.
-        Their files stay untouched; they are imported from this folder or the folder above it."""
-        sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+        The backend files read their values with params.load_parameters(), so the json is saved
+        first and the modules are re-imported after every Apply."""
         import cv2
-        import classic_detector
-        from skinDetect import SkinDetector
-        from widgets import bgr_to_qimage, gray_to_qimage
-        self._backend = dict(cv2=cv2, cd=classic_detector, skin=SkinDetector(), cap=None, cam=None,
-                             bs=None, bs_key=None, t=time.time(), fps=0.0,
-                             to_img=(bgr_to_qimage, gray_to_qimage))
+        self._backend = dict(cv2=cv2, cap=None, cam=None, t=time.time(), fps=0.0)
         self._timer = QTimer(self)
         self._timer.timeout.connect(self._backend_frame)
         self._apply_backend()
@@ -175,25 +168,19 @@ class GestureGui(QObject):
             self._backend["cap"].release()
 
     def _apply_backend(self):
-        b, p = self._backend, self.params
-        cv2, cd, sd = b["cv2"], b["cd"], b["skin"]
-        t, s, c = p["tracking"], p["skin"], p["camera"]
-        # classic_detector.py constants and the kernels it builds from them
-        cd.SEED_DILATE, cd.SKIN_CLOSE, cd.JOIN_K = t["seed_dilate"], t["skin_close"], t["join_k"]
-        cd.OUTLINE_SIGMA, cd.MIN_AREA = t["outline_sigma"], t["min_area"]
-        ell = lambda n: cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (n, n))
-        cd.K_SEED, cd.K_SKIN, cd.K_JOIN = ell(cd.SEED_DILATE), ell(cd.SKIN_CLOSE), ell(cd.JOIN_K)
-        k = max(1, int(t["blur_kernel"]))
-        b["blur"] = k if k % 2 else k + 1
-        key = (t["motion_history"], t["motion_var_threshold"])
-        if key != b["bs_key"]:
-            b["bs_key"] = key
-            b["bs"] = cv2.createBackgroundSubtractorMOG2(history=key[0], varThreshold=key[1],
-                                                         detectShadows=False)
-        # skinDetect.py SkinDetector arguments
-        sd.rebuild_interval = s["rebuild_interval"]
-        sd.coverage, sd.cov_min, sd.cov_max, sd.step = s["coverage"], s["cov_min"], s["cov_max"], s["step"]
-        sd.frac_lo, sd.frac_hi, sd.pct_lo, sd.pct_hi = s["frac_lo"], s["frac_hi"], s["pct_lo"], s["pct_hi"]
+        import importlib
+        from Gui.widgets import bgr_to_qimage, gray_to_qimage
+        b, cv2 = self._backend, self._backend["cv2"]
+        self.save_now()                                    # backend reads this json
+        import Src.skinDetect as skinDetect, Src.classic_detector as classic_detector          # re-import so they read the new json
+        importlib.reload(skinDetect)
+        importlib.reload(classic_detector)
+        b["cd"], b["skin"] = classic_detector, skinDetect.SkinDetector()
+        t, c = self.params["tracking"], self.params["camera"]
+        b["bs"] = cv2.createBackgroundSubtractorMOG2(history=t["motion_history"],
+                                                     varThreshold=t["motion_var_threshold"],
+                                                     detectShadows=False)
+        b["to_img"] = (bgr_to_qimage, gray_to_qimage)
         cam = (c["index"], c["auto_white_balance"], c["auto_exposure"])
         if cam != b["cam"]:
             b["cam"] = cam
@@ -215,7 +202,7 @@ class GestureGui(QObject):
         to_img, to_gray = b["to_img"]
         frame = cv2.flip(frame, 1)
         h, w = frame.shape[:2]
-        blur = cv2.GaussianBlur(frame, (b["blur"], b["blur"]), 0)
+        blur = cv2.GaussianBlur(frame, (self.params["tracking"]["blur_kernel"],) * 2, 0)
         skin, _ = b["skin"].process(blur)                                      # skinDetect.py
         seed = cv2.dilate(b["bs"].apply(blur, learningRate=-1), cd.K_SEED)
         skin = cv2.morphologyEx(skin, cv2.MORPH_CLOSE, cd.K_SKIN)
